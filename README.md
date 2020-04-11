@@ -1,2 +1,2 @@
 # test_konlpy
-tes for konlpy
+test for konlpy
