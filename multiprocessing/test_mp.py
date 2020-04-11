@@ -33,7 +33,28 @@ from pprint import pprint
 from time import time
 
 # Load Dataset
-dataset = pd.read_csv('./nsmc/ratings_test.txt', sep='\t')
+dataset = pd.read_csv('../nsmc/ratings_test.txt', sep='\t')
+# dataset = pd.read_csv('ratings_test.txt', sep='\t')
+
+# fiter NaN
+# https://stackoverflow.com/a/61125923
+filt_condition = dataset['document'].str.contains("", na=False)
+dataset = dataset[filt_condition]
+
+'''
+# filter error documents
+remove ids: 1602406, 5054255, 4718151, 117866
+id	document	label
+1602406	진짜 조낸 재밌다 굿굿굿굿굿굿굿굿굿굿굿굿굿굿굿굿굿굿굿굿굿굿	1
+5054255	몰라 그냥 영화도 안봤는데 쓰레기얌 ㅂㅂㅂㅂㅂㅂㅂㅂㅂㅂㅂㅂㅂㅂㅂㅂㅂㅂㅂㅂㅂㅂ	0
+4718151	황시욬황시욬황시욬황시욬황시욬황시욬황시욬황시욬황시욬황시욬	0
+117866	ㄹㅇㄴㅁㄹㅇㄴㅁㄹㅇㄴㅁㄹㅇㄴㅁㄹㅇㄴㅁㄹㅇㄴㅁㄹㅇㄴㅁㄹㅇㄴㅁㄹㅇㄴㅁ	1
+'''
+remove_ids = [1602406, 5054255, 4718151, 117866]
+for rid in remove_ids:
+    print(dataset[dataset['id'] == rid].values)
+    dataset = dataset.drop(dataset[dataset['id'] == rid].index)
+
 dataset = dataset.drop(['id'], axis=1)
 
 # sample = dataset.iloc[10].document
@@ -49,7 +70,7 @@ def morphInit():
 def morphRow(doc):
     kkma = kp.tag.Kkma()
     result = kkma.morphs(doc)
-    print('{}\t{}'.format(doc, result))
+    # print('{}\t{}'.format(doc, result))
     return result
 
 def morphRowDummy(doc):
@@ -57,12 +78,14 @@ def morphRowDummy(doc):
     return result
 
 
-print('start', file=sys.stderr)
+print('= start analyze', file=sys.stderr)
 start_time = time()
 
 pool = mp.Pool(2, initializer=morphInit)
-results = pool.map(morphRow, dataset.iloc[:10000, 0].values)
+sample = dataset.iloc[:, 0]
+print('lines: ', len(sample), file=sys.stderr)
+results = pool.map(morphRow, sample.values)
 pool.close()
 
-print('end', file=sys.stderr)
+print('= end analyze', file=sys.stderr)
 print(time() - start_time)
