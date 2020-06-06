@@ -8,6 +8,12 @@ import argparse
 
 
 def read_bab2min(fname):
+    '''
+    $ head -3 raw/bab2min.txt
+    이  VCP 0.018279601
+    있  VA  0.011699048
+    하  VV  0.009773658
+    '''
     stopwords = []
     with open(fname) as fp:
         for buf in fp:
@@ -20,27 +26,91 @@ def read_bab2min(fname):
     return stopwords
 
 
-STOPWORDS_PATHS = {
-    'morph': {'bab2min': read_bab2min},
-    'word': {'bab2min': read_bab2min}
+def read_6(fname):
+    '''
+    $ head -3 raw/6.txt
+    ["!","\"","$","%","&","'","(",")","*","+",",","-", ...]
+    '''
+    stopwords = []
+    with open(fname) as fp:
+        for buf in fp:
+            line = buf.rstrip().split('\t')
+            if len(line) != 3:
+                continue
+            morph, tag, ratio = line
+            stopword = '{}/{}'.format(morph, tag)
+            stopwords.append(stopword)
+    return stopwords
+
+
+def read_lined_stopwords(fname):
+    '''
+    $ head -3 raw/ranksnl.txt
+    아
+    휴
+    아이구
+
+    $ head -3 raw/spikeekips.txt
+    가
+    가까스로
+    가령
+    '''
+    stopwords = []
+    with open(fname) as fp:
+        for buf in fp:
+            line = buf.rstrip()
+            word = line
+            stopwords.append(word)
+    return stopwords
+
+
+STOPWORDS = {
+    'morph': [
+        {'name': 'bab2min', 'func': read_bab2min, 'file': 'raw/bab2min.txt'}
+    ],
+    'word': [
+        {'name': '6', 'func': read_6 , 'file': 'raw/6.txt'},
+        {'name': 'ranksnl', 'func': read_lined_stopwords, 'file': 'raw/ranksnl.txt'},
+        {'name': 'spikeekips', 'func': read_lined_stopwords, 'file': 'raw/spikeekips.txt'}
+        # {'name': 'stopwords-iso', 'func': read_stopwords_iso},
+        # {'name': 'many-stop-words', 'func': read_many_stop_words},
+    ]
 }
 
 
 def read_stopwords(unit):
-    stopwords = []
-    for path in STOPWORDS_PATHS[unit]:
-        stopwords = read_bab2min()
+    all_stopwords = []
+    for item in STOPWORDS[unit]:
+        name, func, fname = item['name'], item['func'], item['file']
+        stopwords = func(fname)
+        all_stopwords.extend(stopwords)
+    all_stopwords = sorted(list(set(all_stopwords)))
+    return all_stopwords
 
 
-def dumps_stopwords(stopwords, unit):
+def dump_stopwords(stopwords, unit):
     fname = 'stopwords.{}.txt'.format(unit)
     with open(fname, 'w') as fp:
         fp.writelines('\n'.join(stopwords))
 
 
 if __name__ == '__main__':
+    '''
+    여러 source에서 수집한 stopwords 파일들을 konlpy에서 사용할 형태로 가공합니다.
+    
+    stopwords의 형태는 unit에 따라 2가지로 나눠집니다.
+    unit = morph or word
+
+    두가지 unit을 한번에 처리하기 위해서는 unit을 all로 지정합니다.
+
+    입력된 unit에 맞게 미리 지정된 경로에서 stopword를 읽어옵니다.
+    중복된 stopword를 제거하고, 지정된 파일로 저장합니다.
+
+    morph = stopwords.morph.txt
+    word = stopwords.word.txt
+    '''
     parser = argparse.ArgumentParser()
-    parser.add_argument('-u', '--unit', action='store', dest='unit', required=True, help='set update stopwords unit')
+    parser.add_argument('-u', '--unit', action='store', dest='unit', default='all', help='set update stopwords unit(morph | word | all(default))')
     options = parser.parse_args()
 
     unit = options.unit
