@@ -7,6 +7,9 @@ import json
 import argparse
 
 
+VERBOSE = 0
+
+
 def read_bab2min(fname):
     '''
     $ head -3 raw/bab2min.txt
@@ -33,13 +36,8 @@ def read_6(fname):
     '''
     stopwords = []
     with open(fname) as fp:
-        for buf in fp:
-            line = buf.rstrip().split('\t')
-            if len(line) != 3:
-                continue
-            morph, tag, ratio = line
-            stopword = '{}/{}'.format(morph, tag)
-            stopwords.append(stopword)
+        line = fp.read().rstrip()
+        stopwords = json.loads(line)
     return stopwords
 
 
@@ -49,11 +47,13 @@ def read_lined_stopwords(fname):
     아
     휴
     아이구
+	...
 
     $ head -3 raw/spikeekips.txt
     가
     가까스로
     가령
+	...
     '''
     stopwords = []
     with open(fname) as fp:
@@ -64,6 +64,25 @@ def read_lined_stopwords(fname):
     return stopwords
 
 
+def read_stopwords_iso(fname):
+    stopwords = []
+    with open(fname) as fp:
+        line = fp.read().rstrip()
+        stopwords = json.loads(line)
+        if 'ko' in stopwords:
+            stopwords = stopwords['ko']
+        else:
+            stopwords = [] 
+    return stopwords
+
+
+def read_many_stop_words(fname):
+    stopwords = []
+    import many_stop_words as mstopwords
+    stopwords = list(mstopwords.get_stop_words('kr'))
+    return stopwords
+
+
 STOPWORDS = {
     'morph': [
         {'name': 'bab2min', 'func': read_bab2min, 'file': 'raw/bab2min.txt'}
@@ -71,19 +90,28 @@ STOPWORDS = {
     'word': [
         {'name': '6', 'func': read_6 , 'file': 'raw/6.txt'},
         {'name': 'ranksnl', 'func': read_lined_stopwords, 'file': 'raw/ranksnl.txt'},
-        {'name': 'spikeekips', 'func': read_lined_stopwords, 'file': 'raw/spikeekips.txt'}
-        # {'name': 'stopwords-iso', 'func': read_stopwords_iso},
-        # {'name': 'many-stop-words', 'func': read_many_stop_words},
+        {'name': 'spikeekips', 'func': read_lined_stopwords, 'file': 'raw/spikeekips.txt'},
+        {'name': 'stopwords-iso', 'func': read_stopwords_iso, 'file': 'stopwords-iso/stopwords-iso.json'},
+        {'name': 'many-stop-words', 'func': read_many_stop_words, 'file': None}
     ]
 }
 
 
 def read_stopwords(unit):
+    global VERBOSE
+    if VERBOSE > 0:
+        print('{}\t{}\t{}\t{}'.format('UNIT', 'NAME', 'FUNC', 'FNAME'))
+
     all_stopwords = []
     for item in STOPWORDS[unit]:
         name, func, fname = item['name'], item['func'], item['file']
         stopwords = func(fname)
         all_stopwords.extend(stopwords)
+
+        if VERBOSE > 0:
+            print('{}\t{}\t{}\t{}'.format(unit, name, func, fname))
+            print('{}'.format(', '.join(stopwords[:10])))
+
     all_stopwords = sorted(list(set(all_stopwords)))
     return all_stopwords
 
@@ -109,10 +137,13 @@ if __name__ == '__main__':
     morph = stopwords.morph.txt
     word = stopwords.word.txt
     '''
+
     parser = argparse.ArgumentParser()
+    parser.add_argument('-v', '--verbose', action='count', dest='verbose', default=0, help='set verbosity level')
     parser.add_argument('-u', '--unit', action='store', dest='unit', default='all', help='set update stopwords unit(morph | word | all(default))')
     options = parser.parse_args()
 
+    VERBOSE = options.verbose
     unit = options.unit
 
     if unit not in ['all', 'morph', 'word']:
