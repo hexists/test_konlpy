@@ -97,7 +97,26 @@ STOPWORDS = {
 }
 
 
-def read_stopwords(unit):
+def fit_stopwords_to_analyzer(stopwords, c_table):
+    n_stopwords = []
+    for stopword in stopwords:
+        morph, tag = stopword.rsplit('/')
+        if tag in c_table:
+            print(c_table[tag])
+            a_stopword = []
+            for a_tags in c_table[tag]:
+                if a_tags == '':
+                    a_morph_tag = ''
+                else:
+                    a_tags = a_tags.split(',')
+                    a_morph_tag = ','.join(['{}/{}'.format(morph, a_tag) for a_tag in a_tags])
+                a_stopword.append(a_morph_tag)
+            a_stopword = '\t'.join(a_stopword)
+            n_stopwords.append(a_stopword)
+    return n_stopwords
+
+
+def read_stopwords(unit, c_table=None):
     global VERBOSE
     if VERBOSE > 0:
         print('{}\t{}\t{}\t{}'.format('UNIT', 'NAME', 'FUNC', 'FNAME'))
@@ -106,6 +125,8 @@ def read_stopwords(unit):
     for item in STOPWORDS[unit]:
         name, func, fname = item['name'], item['func'], item['file']
         stopwords = func(fname)
+        if c_table:
+            stopwords = fit_stopwords_to_analyzer(stopwords, c_table)
         all_stopwords.extend(stopwords)
 
         if VERBOSE > 0:
@@ -116,10 +137,33 @@ def read_stopwords(unit):
     return all_stopwords
 
 
-def dump_stopwords(stopwords, unit):
+def dump_stopwords(stopwords, unit, c_table=None):
     fname = 'stopwords.{}.txt'.format(unit)
     with open(fname, 'w') as fp:
+        if c_table:
+            fp.writelines('\t'.join(c_table['sejong']) + '\n')
         fp.writelines('\n'.join(stopwords))
+
+
+def read_convert_table(fname):
+    '''
+    {'NNG': [], 'NNP': []}
+    '''
+    c_table = {}
+    fp_c_table = open(fname, 'r')
+
+    if fp_c_table.readable() is False:
+        print('convert table file is not readable.', file=sys.stderr)
+        sys.exit(1)
+
+    for idx, buf in enumerate(fp_c_table):
+        line = buf.rstrip().split('\t')
+        sejong_tag, analyzer_tags = line[0], line[2: ]
+        c_table[sejong_tag] = analyzer_tags
+
+    fp_c_table.close()
+
+    return c_table
 
 
 if __name__ == '__main__':
@@ -141,18 +185,22 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-v', '--verbose', action='count', dest='verbose', default=0, help='set verbosity level')
     parser.add_argument('-u', '--unit', action='store', dest='unit', default='all', help='set update stopwords unit(morph | word | all(default))')
+    parser.add_argument('-t', '--conv-table', action='store', dest='c_table_file', default='convert_table.txt', help='set convert table path for stopwords.morphs.txt')
     options = parser.parse_args()
 
     VERBOSE = options.verbose
     unit = options.unit
+    c_table_file = options.c_table_file
 
     if unit not in ['all', 'morph', 'word']:
         print('UNIT is not acceptable', file=sys.stderr)
         sys.exit(1)
 
+    c_table = read_convert_table(c_table_file)
+
     if unit in ['all', 'morph']:
-        stopwords = read_stopwords('morph')
-        dump_stopwords(stopwords, 'morph')
+        stopwords = read_stopwords('morph', c_table)
+        dump_stopwords(stopwords, 'morph', c_table)
 
     if unit in ['all', 'word']:
         stopwords = read_stopwords('word')
