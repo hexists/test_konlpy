@@ -3,6 +3,9 @@
 '''
 kopora + konlpy + pytorch를 이용한 question pair 문제 풀기
 
+https://medium.com/mlreview/implementing-malstm-on-kaggles-quora-question-pairs-competition-8b31b0b16a07
+긅을 참고했습니다.
+
 1) kopora, konlpy, pytorch 설치하기
 
   $ pip install -r requirments.txt
@@ -32,6 +35,8 @@ kopora + konlpy + pytorch를 이용한 question pair 문제 풀기
 
   a) 데이터 로드
   b) 형태소 분석
+  c) vocab 생성
+  d) idx로 변환
 '''
 
 
@@ -78,5 +83,42 @@ def analyze_question_pairs(question_pairs):
 
 train = analyze_question_pairs(question_pair.train)
 test = analyze_question_pairs(question_pair.test)
+
+# train 데이터를 이용하여 vocab을 만듭니다.
+# <pad>, <unk>에 대해서는 미리 index를 지정합니다.
+vocab2idx = {'<pad>': 0, '<unk>': 1}
+idx2vocab = ['<pad>', '<unk>']
+
+for _, _, _, text_morph, pair_morph in train:
+    for morph in text_morph:
+        if morph not in vocab2idx:
+            vocab2idx[morph] = len(idx2vocab)
+            idx2vocab.append(morph)
+
+pprint('vocab2idx = {}'.format(len(vocab2idx)))
+pprint(idx2vocab[:10])
+print()
+
+# train, test 데이터를 index형태로 변환합니다.
+# text_morph, pair_morph에 대해 index로 변환하고, 다른 데이터는 그대로 유지합니다.
+def text2idx(pairs):
+    question_pairs = []
+    for text, pair, label, text_morph, pair_morph in pairs:
+        text_idx, pair_idx = [], []
+        for morph in text_morph:
+            idx = vocab2idx[morph] if morph in vocab2idx else vocab2idx['<unk>']
+            text_idx.append(idx)
+
+        for morph in pair_morph:
+            idx = vocab2idx[morph] if morph in vocab2idx else vocab2idx['<unk>']
+            pair_idx.append(idx)
+
+        question_pairs.append((text, pair, label, text_idx, pair_idx))
+        pprint(question_pairs)
+        break
+    return question_pairs
+
+train = text2idx(train)
+test = text2idx(test)
 
 
