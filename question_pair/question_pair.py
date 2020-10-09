@@ -74,6 +74,9 @@ def analyze_question_pairs(question_pairs):
 
         anal_question_pairs.append((qp.text, qp.pair, qp.label, text_morph, pair_morph))
         # pprint(anal_question_pairs)
+    return anal_question_pairs
 
-analyze_question_pairs(question_pair.train)
-analyze_question_pairs(question_pair.test)
+train = analyze_question_pairs(question_pair.train)
+test = analyze_question_pairs(question_pair.test)
+
+
