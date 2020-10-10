@@ -39,6 +39,8 @@ https://medium.com/mlreview/implementing-malstm-on-kaggles-quora-question-pairs-
   d) idx로 변환
   e) custom dataset 생성
   f) model 생성
+  g) model 학습
+  h) 학습 완료 후 test 수행
 '''
 
 
@@ -186,7 +188,7 @@ def make_batch(samples):
 batch_size = 64
 train_loader = data_utils.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=make_batch)
 valid_loader = data_utils.DataLoader(valid_dataset, batch_size=batch_size, shuffle=False, collate_fn=make_batch)
-test_loader = data_utils.DataLoader(test_dataset, batch_size=batch_size, shuffle=False, collate_fn=make_batch)
+test_loader = data_utils.DataLoader(test_dataset, batch_size=1, shuffle=False, collate_fn=make_batch)
 
 # for i, vals in enumerate(train_loader):
 #     print(vals)
@@ -243,7 +245,8 @@ class TextSiamese(nn.Module):
 
 hidden_size = 50
 learning_rate = 0.001
-num_iters = 500
+# num_iters = 500
+num_iters = 2
 
 model = TextSiamese(hidden_size, len(vocab2idx))
 optimizer = optim.Adam(model.parameters(), lr=learning_rate)
@@ -324,3 +327,25 @@ for epoch in range(1, num_iters + 1):
     writer.add_scalar('{}/{}'.format('acc', 'valid'), va_acc, epoch)
 
 writer.close()
+
+print(file=sys.stderr)
+with torch.no_grad():
+    model.eval()
+    cor_count, fp = 0, open('log.{}'.format(date_time), 'w')
+    fp.writelines('{}\t{}\t{}\t{}\t{}\n'.format('T/F', 'LABEL', 'PRED', 'TEXT', 'PAIR'))
+    for i, vals in enumerate(test_loader):
+        text, pair, text_idx, pair_idx, label, text_len, pair_len = vals
+
+        scores = model(text_idx, pair_idx, text_len, pair_len)
+        pred_label = torch.round(scores)
+        if pred_label == label:
+            cor_count += 1
+
+        fp.writelines('{}\t{}\t{}\t{}\t{}\n'.format((pred_label == label)[0].item(), label[0].item(), pred_label[0].item(), text[0], pair[0]))
+
+        progress = (i + 1) / float(len(test_loader))
+        print_progress('test', progress)
+
+    te_acc = cor_count / i
+    print("\ntest acc: {:.4f}".format(te_acc), file=sys.stderr)
+    fp.close()
