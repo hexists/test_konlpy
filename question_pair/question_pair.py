@@ -37,6 +37,8 @@ https://medium.com/mlreview/implementing-malstm-on-kaggles-quora-question-pairs-
   b) 형태소 분석
   c) vocab 생성
   d) idx로 변환
+  e) custom dataset 생성
+  f) model 생성
 '''
 
 
@@ -95,30 +97,96 @@ for _, _, _, text_morph, pair_morph in train:
             vocab2idx[morph] = len(idx2vocab)
             idx2vocab.append(morph)
 
-pprint('vocab2idx = {}'.format(len(vocab2idx)))
-pprint(idx2vocab[:10])
+print('vocab2idx = {}'.format(len(vocab2idx)))
+print('idx2vocab = {}'.format(idx2vocab[:10]))
 print()
 
-# train, test 데이터를 index형태로 변환합니다.
-# text_morph, pair_morph에 대해 index로 변환하고, 다른 데이터는 그대로 유지합니다.
-def text2idx(pairs):
-    question_pairs = []
-    for text, pair, label, text_morph, pair_morph in pairs:
-        text_idx, pair_idx = [], []
-        for morph in text_morph:
-            idx = vocab2idx[morph] if morph in vocab2idx else vocab2idx['<unk>']
-            text_idx.append(idx)
 
-        for morph in pair_morph:
-            idx = vocab2idx[morph] if morph in vocab2idx else vocab2idx['<unk>']
-            pair_idx.append(idx)
+import torch
+import torch.utils.data as data_utils
+import torch.nn.utils.rnn as rnn
+import numpy as np
+import random
 
-        question_pairs.append((text, pair, label, text_idx, pair_idx))
-        pprint(question_pairs)
-        break
-    return question_pairs
 
-train = text2idx(train)
-test = text2idx(test)
+random_seed = 111
+torch.manual_seed(random_seed)
+torch.cuda.manual_seed(random_seed)
+torch.cuda.manual_seed_all(random_seed) # if use multi-GPU
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+np.random.seed(random_seed)
+random.seed(random_seed)
+
+
+class QuestionPairDataset(torch.utils.data.Dataset): 
+    def __init__(self, vocab2idx, data):
+        self.vocab2idx = vocab2idx
+        self.data = self.text2idx(data)
+
+    def text2idx(self, pairs):
+        # train, test 데이터를 index형태로 변환합니다.
+        # text_morph, pair_morph에 대해 index로 변환하고, 다른 데이터는 그대로 유지합니다.
+        question_pairs = []
+        for text, pair, label, text_morph, pair_morph in pairs:
+            text_idx, pair_idx = [], []
+            for morph in text_morph:
+                idx = self.vocab2idx[morph] if morph in self.vocab2idx else self.vocab2idx['<unk>']
+                text_idx.append(idx)
+    
+            for morph in pair_morph:
+                idx = self.vocab2idx[morph] if morph in self.vocab2idx else self.vocab2idx['<unk>']
+                pair_idx.append(idx)
+    
+            text_idx = torch.LongTensor(text_idx)
+            pair_idx = torch.LongTensor(pair_idx)
+            label = torch.FloatTensor([float(label)])
+
+            question_pairs.append((text, pair, label, text_idx, pair_idx))
+            # pprint(question_pairs)
+
+        return question_pairs
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        text, pair, label, text_idx, pair_idx = self.data[idx]
+        text_len, pair_len = len(text_idx), len(pair_idx)
+        return text, pair, text_idx, pair_idx, label, text_len, pair_len
+
+train_dataset = QuestionPairDataset(vocab2idx, train)
+test_dataset = QuestionPairDataset(vocab2idx, test)
+
+valid_len = int(len(train_dataset) * 0.2)
+train_dataset, valid_dataset = data_utils.random_split(train_dataset, (len(train_dataset) - valid_len, valid_len))
+
+def make_batch(samples):
+    text, pair, text_idx, pair_idx, label, text_len, pair_len = list(zip(*samples))
+
+    text_len = torch.LongTensor(text_len)
+    pair_len = torch.LongTensor(pair_len)
+
+    padded_text_idx = rnn.pad_sequence(text_idx, batch_first=True, padding_value=0)
+    padded_pair_idx = rnn.pad_sequence(pair_idx, batch_first=True, padding_value=0)
+
+    batch = [
+        text, 
+        pair,
+        padded_text_idx.contiguous(),
+        padded_pair_idx.contiguous(),
+        torch.stack(label).contiguous(),
+        text_len,
+        pair_len
+    ]
+    return batch
+
+
+batch_size = 2
+train_loader = data_utils.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=make_batch)
+valid_loader = data_utils.DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, collate_fn=make_batch)
+
+# for i, vals in enumerate(train_loader):
+#     print(vals)
 
 
