@@ -245,8 +245,7 @@ class TextSiamese(nn.Module):
 
 hidden_size = 50
 learning_rate = 0.001
-# num_iters = 500
-num_iters = 2
+num_iters = 500
 
 model = TextSiamese(hidden_size, len(vocab2idx))
 optimizer = optim.Adam(model.parameters(), lr=learning_rate)
