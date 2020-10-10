@@ -183,7 +183,7 @@ def make_batch(samples):
     return batch
 
 
-batch_size = 64
+batch_size = 32
 train_loader = data_utils.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=make_batch)
 valid_loader = data_utils.DataLoader(valid_dataset, batch_size=batch_size, shuffle=False, collate_fn=make_batch)
 test_loader = data_utils.DataLoader(test_dataset, batch_size=batch_size, shuffle=False, collate_fn=make_batch)
@@ -240,8 +240,8 @@ class TextSiamese(nn.Module):
         ''' Helper function for the similarity estimate of the LSTMs outputs '''
         return torch.exp(-torch.sum(torch.abs(x1 - x2), dim=1))  # (batch_size)
 
-hidden_size = 100
-learning_rate = 0.00001
+hidden_size = 50
+learning_rate = 0.001
 num_iters = 100
 
 model = TextSiamese(hidden_size, len(vocab2idx))
