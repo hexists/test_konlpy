@@ -140,7 +140,8 @@ class QuestionPairDataset(torch.utils.data.Dataset):
     
             text_idx = torch.LongTensor(text_idx)
             pair_idx = torch.LongTensor(pair_idx)
-            label = torch.FloatTensor([float(label)])
+            # label = torch.FloatTensor(float(label))
+            label = torch.as_tensor(float(label))
 
             question_pairs.append((text, pair, label, text_idx, pair_idx))
             # pprint(question_pairs)
@@ -182,11 +183,129 @@ def make_batch(samples):
     return batch
 
 
-batch_size = 2
+batch_size = 64
 train_loader = data_utils.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=make_batch)
-valid_loader = data_utils.DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, collate_fn=make_batch)
+valid_loader = data_utils.DataLoader(valid_dataset, batch_size=batch_size, shuffle=False, collate_fn=make_batch)
+test_loader = data_utils.DataLoader(test_dataset, batch_size=batch_size, shuffle=False, collate_fn=make_batch)
 
 # for i, vals in enumerate(train_loader):
 #     print(vals)
 
 
+import torch.nn as nn
+from torch.nn.utils.rnn import pack_padded_sequence
+from torch import optim
+
+
+class TextSiamese(nn.Module):
+    def __init__(self, hidden_size, vocab_size):
+        super(TextSiamese, self).__init__()
+        self.embed_size = 300
+        self.num_layers = 1
+        self.bidirectional = True
+        self.direction = 2 if self.bidirectional else 1
+        self.hidden_size = hidden_size
+        self.vocab_size = vocab_size
+
+        self.embeddings = nn.Embedding(self.vocab_size, self.embed_size, padding_idx=0)
+
+        self.shared_lstm = nn.LSTM(self.embed_size, self.hidden_size, num_layers=self.num_layers, batch_first=True, bidirectional=self.bidirectional)
+
+    def forward(self, text, pair, text_len, pair_len):
+        pack_text = self.input2packed_embed(text, text_len)
+        pack_pair = self.input2packed_embed(pair, pair_len)
+
+        batch_size = text.size()[0]
+
+        # use zero init hidden, cell_state
+        _, (text_hidden, text_cell_state) = self.shared_lstm(pack_text, None)
+        _, (pair_hidden, pair_cell_state) = self.shared_lstm(pack_pair, None)
+
+        if self.bidirectional is True:
+            text_hidden = text_hidden.view(self.num_layers, self.direction, batch_size, self.hidden_size)  # (num_layers, num_directions, batch, hidden_size)
+            text_hidden = torch.cat((text_hidden[:, 0], text_hidden[:, 1]), -1)  # (num_directions, batch, hidden_size) => (num_directions, batch, hidden_size * 2)
+            pair_hidden = pair_hidden.view(self.num_layers, self.direction, batch_size, self.hidden_size)
+            pair_hidden = torch.cat((pair_hidden[:, 0], pair_hidden[:, 1]), -1)
+
+        distance = self.exponent_neg_manhattan_distance(text_hidden.permute(1, 2, 0).view(batch_size, -1), pair_hidden.permute(1, 2, 0).view(batch_size, -1))  # (batch_size, hidden_size)
+
+        return distance
+
+    def input2packed_embed(self, inp, inp_len):
+        embed = self.embeddings(inp)  # (Batch size, Max length, Embedding size)
+        packed_embed = pack_padded_sequence(embed, inp_len, batch_first=True, enforce_sorted=False)
+        return packed_embed
+
+    def exponent_neg_manhattan_distance(self, x1, x2):
+        ''' Helper function for the similarity estimate of the LSTMs outputs '''
+        return torch.exp(-torch.sum(torch.abs(x1 - x2), dim=1))  # (batch_size)
+
+hidden_size = 100
+learning_rate = 0.00001
+num_iters = 100
+
+model = TextSiamese(hidden_size, len(vocab2idx))
+optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+loss_func = nn.MSELoss()
+
+def print_progress(msg, progress):
+    max_progress = int((progress*100)/2)
+    remain=50-max_progress
+    buff="{}\t[".format( msg )
+    for i in range( max_progress ): buff+="⬛"
+    buff+="⬜"*remain
+    buff+="]:{:.2f}%\r".format( progress*100 )
+    sys.stderr.write(buff)
+
+def binary_acc(y_pred, y_test):
+    y_pred_tag = torch.round(y_pred)
+    correct_results_sum = (y_pred_tag == y_test).sum().float()
+    acc = correct_results_sum/y_test.shape[0]
+    acc = torch.round(acc * 100)
+    return acc
+
+for epoch in range(1, num_iters + 1):
+    model.train()
+    tr_losses, tr_accs = [], []
+    # train
+    for i, vals in enumerate(train_loader):
+        text, pair, text_idx, pair_idx, label, text_len, pair_len = vals
+
+        model.zero_grad()
+        scores = model(text_idx, pair_idx, text_len, pair_len)
+        loss = loss_func(scores, label)
+        acc = binary_acc(scores, label)
+
+        tr_losses.append(loss.item())
+        tr_accs.append(acc.item())
+
+        loss.backward()
+        optimizer.step()
+
+        progress = (i + 1) / float(len(train_loader))
+        print_progress('train', progress)
+    print(file=sys.stderr)
+
+    with torch.no_grad():
+        model.eval()
+        va_losses, va_accs = [], []
+        for i, vals in enumerate(valid_loader):
+            text, pair, text_idx, pair_idx, label, text_len, pair_len = vals
+
+            scores = model(text_idx, pair_idx, text_len, pair_len)
+            loss = loss_func(scores, label)
+            acc = binary_acc(scores, label)
+
+            va_losses.append(loss.item())
+            va_accs.append(acc.item())
+
+            progress = (i + 1) / float(len(valid_loader))
+            print_progress('valid', progress)
+
+        print(file=sys.stderr)
+        print('text : {}'.format(text[-1]), file=sys.stderr)
+        print('pair : {}'.format(pair[-1]), file=sys.stderr)
+        print('label = {:.4f}, score = {:.4f}'.format(label[-1].item(), scores[-1].item()), file=sys.stderr)
+        print(file=sys.stderr)
+
+    print("{} / {}\ttrain loss : {:.4f}, train acc: {:.4f}, valid loss: {:.4f} valid acc: {:.4f}".format(epoch, num_iters, np.mean(tr_losses), np.mean(tr_accs), np.mean(va_losses), np.mean(va_accs)), file=sys.stderr)
