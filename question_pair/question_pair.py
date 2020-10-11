@@ -245,7 +245,7 @@ class TextSiamese(nn.Module):
 
 hidden_size = 50
 learning_rate = 0.001
-num_iters = 500
+num_iters = 1000
 
 model = TextSiamese(hidden_size, len(vocab2idx))
 optimizer = optim.Adam(model.parameters(), lr=learning_rate)
@@ -313,12 +313,11 @@ for epoch in range(1, num_iters + 1):
         print('text : {}'.format(text[-1]), file=sys.stderr)
         print('pair : {}'.format(pair[-1]), file=sys.stderr)
         print('label = {:.4f}, score = {:.4f}'.format(label[-1].item(), scores[-1].item()), file=sys.stderr)
-        print(file=sys.stderr)
 
     tr_loss, tr_acc = np.mean(tr_losses), np.mean(tr_accs)
     va_loss, va_acc = np.mean(va_losses), np.mean(va_accs)
 
-    print("{} / {}\ttrain loss : {:.4f}, train acc: {:.4f}, valid loss: {:.4f} valid acc: {:.4f}".format(epoch, num_iters, tr_loss, tr_acc, va_loss, va_acc), file=sys.stderr)
+    print("{} / {}\ttrain loss : {:.4f}, train acc: {:.4f}, valid loss: {:.4f} valid acc: {:.4f}\n".format(epoch, num_iters, tr_loss, tr_acc, va_loss, va_acc), file=sys.stderr)
 
     writer.add_scalar('{}/{}'.format('loss', 'train'), tr_loss, epoch)
     writer.add_scalar('{}/{}'.format('acc', 'train'), tr_acc, epoch)
