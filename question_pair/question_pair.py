@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 
 '''
-kopora + konlpy + pytorch를 이용한 question pair 문제 풀기
+korpora + konlpy + pytorch를 이용한 question pair 문제 풀기
 
 https://medium.com/mlreview/implementing-malstm-on-kaggles-quora-question-pairs-competition-8b31b0b16a07
 긅을 참고했습니다.
 
-1) kopora, konlpy, pytorch 설치하기
+1) korpora, konlpy, pytorch 설치하기
 
   $ pip install -r requirments.txt
 
