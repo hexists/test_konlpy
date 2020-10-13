@@ -13,7 +13,7 @@ https://medium.com/mlreview/implementing-malstm-on-kaggles-quora-question-pairs-
   $ bash <(curl -s https://raw.githubusercontent.com/konlpy/konlpy/master/scripts/mecab.sh)
 
 2) 잘 설치됐는지 테스트 해보기
-  # Kopora
+  # Korpora
   $ python3
   >>> from Korpora import Korpora, QuestionPairKorpus
   >>> question_pair = Korpora.load('question_pair')
@@ -74,7 +74,7 @@ import sys
 from pprint import pprint
 
 
-# Kopora에서 question pair corpus를 불러옵니다.
+# Korpora에서 question pair corpus를 불러옵니다.
 from Korpora import Korpora
 question_pair = Korpora.load('question_pair')
 
