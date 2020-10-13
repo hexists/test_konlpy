@@ -13,23 +13,48 @@ https://medium.com/mlreview/implementing-malstm-on-kaggles-quora-question-pairs-
   $ bash <(curl -s https://raw.githubusercontent.com/konlpy/konlpy/master/scripts/mecab.sh)
 
 2) 잘 설치됐는지 테스트 해보기
-
   # Kopora
-  $ from Korpora import Korpora, QuestionPairKorpus
-
-  $ question_pair = Korpora.load('question_pair')
-
-  $ print(question_pair.train[0])
-  $ print(question_pair.train[0].text)
-  $ print(question_pair.train[0].pair)
-  $ print(question_pair.train[0].label)
+  $ python3
+  >>> from Korpora import Korpora, QuestionPairKorpus
+  >>> question_pair = Korpora.load('question_pair')
+  
+      Korpora 는 다른 분들이 연구 목적으로 공유해주신 말뭉치들을
+      손쉽게 다운로드, 사용할 수 있는 기능만을 제공합니다.
+  
+      말뭉치들을 공유해 주신 분들에게 감사드리며, 각 말뭉치 별 설명과 라이센스를 공유 드립니다.
+      해당 말뭉치에 대해 자세히 알고 싶으신 분은 아래의 description 을 참고,
+      해당 말뭉치를 연구/상용의 목적으로 이용하실 때에는 아래의 라이센스를 참고해 주시기 바랍니다.
+  
+      # Description
+       Author : songys@github
+      Repository : https://github.com/songys/Question_pair
+      References :
+  
+      질문쌍(Paired Question v.2)
+      짝 지어진 두 개의 질문이 같은 질문인지 다른 질문인지 핸드 레이블을 달아둔 데이터
+      사랑, 이별, 또는 일상과 같은 주제로 도메인 특정적이지 않음
+  
+      # License
+      Creative Commons Attribution-ShareAlike license (CC BY-SA 4.0)
+      Details in https://creativecommons.org/licenses/by-sa/4.0/
+  
+  >>> print(question_pair.train[0])
+  LabeledSentencePair(text='1000일 만난 여자친구와 이별', pair='10년 연예의끝', label='1')
+  
+  >>> print(question_pair.train[0].text)
+  1000일 만난 여자친구와 이별
+  >>> print(question_pair.train[0].pair)
+  10년 연예의끝
+  >>> print(question_pair.train[0].label)
+  1
 
   # konlpy mecab
-  $ from konlpy.tag import Mecab
-    
-  $ mecab = Mecab()
-    
-  $ print(mecab.pos('가을 하늘 공활한데 높고 구름 없이'))
+  $ python3
+  >>> from konlpy.tag import Mecab
+  >>> mecab = Mecab()
+  >>> print(mecab.pos('가을 하늘 공활한데 높고 구름 없이'))
+  [('가을', 'NNG'), ('하늘', 'NNG'), ('공활', 'XR'), ('한', 'XSA+ETM'), ('데', 'NNB'), ('높', 'VA'), ('고', 'EC'), ('
+  구름', 'NNG'), ('없이', 'MAG')]
 
 3) step by step
 
