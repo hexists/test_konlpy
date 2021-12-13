@@ -14,7 +14,7 @@ importlib-metadata==2.0.0
 JPype1==1.0.2
 konlpy==0.5.2
 Korpora==0.1.1
-lxml==4.5.2
+lxml==4.6.5
 Markdown==3.3
 mecab-python @ file:///tmp/mecab-python-0.996
 numpy==1.19.2
