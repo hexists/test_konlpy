@@ -1,35 +1,60 @@
 #!/usr/bin/env python3
 
 '''
-kopora + konlpy + pytorch를 이용한 question pair 문제 풀기
+korpora + konlpy + pytorch를 이용한 question pair 문제 풀기
 
 https://medium.com/mlreview/implementing-malstm-on-kaggles-quora-question-pairs-competition-8b31b0b16a07
 긅을 참고했습니다.
 
-1) kopora, konlpy, pytorch 설치하기
+1) korpora, konlpy, pytorch 설치하기
 
   $ pip install -r requirments.txt
 
   $ bash <(curl -s https://raw.githubusercontent.com/konlpy/konlpy/master/scripts/mecab.sh)
 
 2) 잘 설치됐는지 테스트 해보기
-
-  # Kopora
-  $ from Korpora import Korpora, QuestionPairKorpus
-
-  $ question_pair = Korpora.load('question_pair')
-
-  $ print(question_pair.train[0])
-  $ print(question_pair.train[0].text)
-  $ print(question_pair.train[0].pair)
-  $ print(question_pair.train[0].label)
+  # Korpora
+  $ python3
+  >>> from Korpora import Korpora, QuestionPairKorpus
+  >>> question_pair = Korpora.load('question_pair')
+  
+      Korpora 는 다른 분들이 연구 목적으로 공유해주신 말뭉치들을
+      손쉽게 다운로드, 사용할 수 있는 기능만을 제공합니다.
+  
+      말뭉치들을 공유해 주신 분들에게 감사드리며, 각 말뭉치 별 설명과 라이센스를 공유 드립니다.
+      해당 말뭉치에 대해 자세히 알고 싶으신 분은 아래의 description 을 참고,
+      해당 말뭉치를 연구/상용의 목적으로 이용하실 때에는 아래의 라이센스를 참고해 주시기 바랍니다.
+  
+      # Description
+       Author : songys@github
+      Repository : https://github.com/songys/Question_pair
+      References :
+  
+      질문쌍(Paired Question v.2)
+      짝 지어진 두 개의 질문이 같은 질문인지 다른 질문인지 핸드 레이블을 달아둔 데이터
+      사랑, 이별, 또는 일상과 같은 주제로 도메인 특정적이지 않음
+  
+      # License
+      Creative Commons Attribution-ShareAlike license (CC BY-SA 4.0)
+      Details in https://creativecommons.org/licenses/by-sa/4.0/
+  
+  >>> print(question_pair.train[0])
+  LabeledSentencePair(text='1000일 만난 여자친구와 이별', pair='10년 연예의끝', label='1')
+  
+  >>> print(question_pair.train[0].text)
+  1000일 만난 여자친구와 이별
+  >>> print(question_pair.train[0].pair)
+  10년 연예의끝
+  >>> print(question_pair.train[0].label)
+  1
 
   # konlpy mecab
-  $ from konlpy.tag import Mecab
-    
-  $ mecab = Mecab()
-    
-  $ print(mecab.pos('가을 하늘 공활한데 높고 구름 없이'))
+  $ python3
+  >>> from konlpy.tag import Mecab
+  >>> mecab = Mecab()
+  >>> print(mecab.pos('가을 하늘 공활한데 높고 구름 없이'))
+  [('가을', 'NNG'), ('하늘', 'NNG'), ('공활', 'XR'), ('한', 'XSA+ETM'), ('데', 'NNB'), ('높', 'VA'), ('고', 'EC'), ('
+  구름', 'NNG'), ('없이', 'MAG')]
 
 3) step by step
 
@@ -39,6 +64,8 @@ https://medium.com/mlreview/implementing-malstm-on-kaggles-quora-question-pairs-
   d) idx로 변환
   e) custom dataset 생성
   f) model 생성
+  g) model 학습
+  h) 학습 완료 후 test 수행
 '''
 
 
@@ -47,7 +74,7 @@ import sys
 from pprint import pprint
 
 
-# Kopora에서 question pair corpus를 불러옵니다.
+# Korpora에서 question pair corpus를 불러옵니다.
 from Korpora import Korpora
 question_pair = Korpora.load('question_pair')
 
@@ -186,7 +213,7 @@ def make_batch(samples):
 batch_size = 64
 train_loader = data_utils.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=make_batch)
 valid_loader = data_utils.DataLoader(valid_dataset, batch_size=batch_size, shuffle=False, collate_fn=make_batch)
-test_loader = data_utils.DataLoader(test_dataset, batch_size=batch_size, shuffle=False, collate_fn=make_batch)
+test_loader = data_utils.DataLoader(test_dataset, batch_size=1, shuffle=False, collate_fn=make_batch)
 
 # for i, vals in enumerate(train_loader):
 #     print(vals)
@@ -243,7 +270,7 @@ class TextSiamese(nn.Module):
 
 hidden_size = 50
 learning_rate = 0.001
-num_iters = 500
+num_iters = 1000
 
 model = TextSiamese(hidden_size, len(vocab2idx))
 optimizer = optim.Adam(model.parameters(), lr=learning_rate)
@@ -311,12 +338,11 @@ for epoch in range(1, num_iters + 1):
         print('text : {}'.format(text[-1]), file=sys.stderr)
         print('pair : {}'.format(pair[-1]), file=sys.stderr)
         print('label = {:.4f}, score = {:.4f}'.format(label[-1].item(), scores[-1].item()), file=sys.stderr)
-        print(file=sys.stderr)
 
     tr_loss, tr_acc = np.mean(tr_losses), np.mean(tr_accs)
     va_loss, va_acc = np.mean(va_losses), np.mean(va_accs)
 
-    print("{} / {}\ttrain loss : {:.4f}, train acc: {:.4f}, valid loss: {:.4f} valid acc: {:.4f}".format(epoch, num_iters, tr_loss, tr_acc, va_loss, va_acc), file=sys.stderr)
+    print("{} / {}\ttrain loss : {:.4f}, train acc: {:.4f}, valid loss: {:.4f} valid acc: {:.4f}\n".format(epoch, num_iters, tr_loss, tr_acc, va_loss, va_acc), file=sys.stderr)
 
     writer.add_scalar('{}/{}'.format('loss', 'train'), tr_loss, epoch)
     writer.add_scalar('{}/{}'.format('acc', 'train'), tr_acc, epoch)
@@ -324,3 +350,25 @@ for epoch in range(1, num_iters + 1):
     writer.add_scalar('{}/{}'.format('acc', 'valid'), va_acc, epoch)
 
 writer.close()
+
+print(file=sys.stderr)
+with torch.no_grad():
+    model.eval()
+    cor_count, fp = 0, open('log.{}'.format(date_time), 'w')
+    fp.writelines('{}\t{}\t{}\t{}\t{}\n'.format('T/F', 'LABEL', 'PRED', 'TEXT', 'PAIR'))
+    for i, vals in enumerate(test_loader):
+        text, pair, text_idx, pair_idx, label, text_len, pair_len = vals
+
+        scores = model(text_idx, pair_idx, text_len, pair_len)
+        pred_label = torch.round(scores)
+        if pred_label == label:
+            cor_count += 1
+
+        fp.writelines('{}\t{}\t{}\t{}\t{}\n'.format((pred_label == label)[0].item(), label[0].item(), pred_label[0].item(), text[0], pair[0]))
+
+        progress = (i + 1) / float(len(test_loader))
+        print_progress('test', progress)
+
+    te_acc = cor_count / i
+    print("\ntest acc: {:.4f}".format(te_acc), file=sys.stderr)
+    fp.close()
