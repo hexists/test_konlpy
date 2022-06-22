@@ -17,7 +17,7 @@ Korpora==0.1.1
 lxml==4.5.2
 Markdown==3.3
 mecab-python @ file:///tmp/mecab-python-0.996
-numpy==1.19.2
+numpy==1.22.0
 oauthlib==3.1.0
 protobuf==3.13.0
 pyasn1==0.4.8
